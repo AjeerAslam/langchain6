@@ -1,0 +1,22 @@
+Database: atliq_tshirts
+Description:
+A database to manage information about t-shirts and their associated discounts.
+
+Table: t_shirts
+Description:
+Stores details about t-shirts available for sale.
+- t_shirt_id: Unique identifier for each t-shirt.
+- brand: Brand of the t-shirt.
+- color: Color of the t-shirt.
+- size: Size of the t-shirt.
+- price: Price of the t-shirt (in dollars).
+- stock_quantity: Number of items in stock.
+- brand_color_size: Ensures no duplicate entries for the combination of brand, color, and size.
+
+Table: discounts
+Description:
+Tracks discounts applied to specific t-shirts.
+- discount_id: Unique identifier for each discount.
+- t_shirt_id: Links to the corresponding t-shirt.
+- pct_discount: Discount percentage for the t-shirt.
+
