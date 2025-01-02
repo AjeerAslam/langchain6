@@ -1,16 +1,10 @@
-import streamlit as st
-from langchain_helper import get_few_shot_db_chain
+import import_ipynb
+import app  # Assuming app.ipynb is in the same directory
 
-st.title("AtliQ T Shirts: Database Q&A 👕")
+# Now you can use functions or classes defined in the notebook
+result = app.some_function()
+print(result)
 
-question = st.text_input("Question: ")
-
-if question:
-    chain = get_few_shot_db_chain()
-    response = chain.run(question)
-
-    st.header("Answer")
-    st.write(response)
 
 
 

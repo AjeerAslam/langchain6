@@ -14,3 +14,9 @@ Tutorial for langchain LLM library(pip freeze > requirements.txt)
 6-give database credential inside app.ipynb
 
 7-run app.ipynb file
+
+To run streamlit app
+
+1-pip install -r requirements.txt
+2-cd 4_sqldb_tshirts
+3-streamlit run  app.py

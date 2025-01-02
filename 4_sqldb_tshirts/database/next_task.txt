@@ -1,3 +1,8 @@
-1-solve the column not showing error.
-2-add streamlit.
-3-make it in cloud.
+1-add streamlit.
+    1-ask qn get answer.
+        1-pandas not working in streamlit
+    2-upload feature.
+    3-training feature.
+2-solve colm not showing error.
+3-add vector db.
+4-make it in cloud.
