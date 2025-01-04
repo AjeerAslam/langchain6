@@ -2,7 +2,8 @@
 import mysql.connector
 from mysql.connector import Error
 import ast
-
+import streamlit as st
+import PyPDF2
 
 
 # Establishing database connection
@@ -167,12 +168,12 @@ def read_human_schema(file_name="human_schema.txt"):
     return human_generated_schema
 
 
-def getQueryFromLLM(question, db):
+def getQueryFromLLM(question, db , human_schema = None):
 
     # Get code-generated schema from the database
     code_generated_schema = getDatabaseSchema(db)
 
-    human_generated_schema=read_human_schema()
+    human_generated_schema=read_human_schema() if not human_schema else human_schema
 
     # Combine schemas
     full_schema = f"{code_generated_schema}\n {human_generated_schema}"
@@ -233,12 +234,12 @@ def getQueryFromLLM(question, db):
 
 
 
-def retry(question,db=None):
+def retry(question,db=None,human_schema=None):
     try:
         # mysql_uri = f"mysql+mysqlconnector://{username}:{password}@{host}:{port}/{database}"
         # db = SQLDatabase.from_uri(mysql_uri)
 
-        query = getQueryFromLLM(question,db)
+        query = getQueryFromLLM(question,db, human_schema)
         print(query,'query')
 
         # validate_query
@@ -292,17 +293,36 @@ question='give me t-shirt and brand which have colour black'
 
 # df=create_dataframe("[(1,2),(3,4),(5,6)]")
 
-import streamlit as st
+
 
 st.title("AtliQ T Shirts: Database Q&A 👕")
 
+
+
+
+# File uploader for PDF files in the sidebar
+uploaded_file = st.sidebar.file_uploader("Choose a PDF file", type="pdf")
+
+if uploaded_file is not None:
+    # Read the PDF file
+    pdf_reader = PyPDF2.PdfReader(uploaded_file)
+    num_pages = len(pdf_reader.pages)
+
+
+    # Display the content of each page
+    for page_num in range(num_pages):
+        page = pdf_reader.pages[page_num]
+        human_schema = page.extract_text()
+
 question = st.text_input("Question: ")
 if question:
-    query,result=retry(question,db)
+    query,result=retry(question,db,human_schema)
     st.write(query)
     # st.write(result)
     data=ast.literal_eval(result)
     st.dataframe(data)
+
+
 
 # display(df)
 
