@@ -27,13 +27,7 @@ def get_human_feedback():
     # Establish the database connection using your existing function
     db_connection = get_db_connection(username='root', host='localhost', password='Atk@8522', database='atliq_tshirts')
 
-    """
-    Function to read the query log from a MySQL database and return it as a list of dictionaries.
-    Assumes that the log is stored in a table with columns like 'question', 'model_query', 'is_right', currect_query, and 'error_description'.
-
-    :param db_connection: The database connection object from the get_db_connection function
-    :return: A list of dictionaries containing the query log data
-    """
+    
     try:
 
         # Create a cursor from the existing connection
@@ -306,7 +300,9 @@ question = st.text_input("Question: ")
 if question:
     query,result=retry(question,db)
     st.write(query)
-    st.write(result)
+    # st.write(result)
+    data=ast.literal_eval(result)
+    st.dataframe(data)
 
 # display(df)
 
