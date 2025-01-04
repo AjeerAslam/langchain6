@@ -6,7 +6,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 import streamlit as st
 import ast
 import PyPDF2
-from streamlit_javascript import st_javascript
+
 
 
 
