@@ -173,7 +173,8 @@ def getQueryFromLLM(question, db , human_schema = None):
     # Get code-generated schema from the database
     code_generated_schema = getDatabaseSchema(db)
 
-    human_generated_schema=read_human_schema() if not human_schema else human_schema
+    # human_generated_schema=read_human_schema() if not human_schema else human_schema
+    human_generated_schema=human_schema
 
     # Combine schemas
     full_schema = f"{code_generated_schema}\n {human_generated_schema}"
@@ -285,7 +286,7 @@ db=connectDatabase(username='root', port='3306', host='localhost', password='Atk
 
 
 
-question='give me t-shirt and brand which have colour black'
+# question='give me t-shirt and brand which have colour black'
 
 
 
@@ -303,6 +304,7 @@ st.title("AtliQ T Shirts: Database Q&A 👕")
 # File uploader for PDF files in the sidebar
 uploaded_file = st.sidebar.file_uploader("Choose a PDF file", type="pdf")
 
+human_schema = ""
 if uploaded_file is not None:
     # Read the PDF file
     pdf_reader = PyPDF2.PdfReader(uploaded_file)
@@ -316,6 +318,7 @@ if uploaded_file is not None:
 
 question = st.text_input("Question: ")
 if question:
+    print(human_schema)
     query,result=retry(question,db,human_schema)
     st.write(query)
     # st.write(result)
