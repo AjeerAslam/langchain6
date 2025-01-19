@@ -322,7 +322,7 @@ def main(human_schema= None):
                 if currect_qry and error_description:
                     insert_human_feedback(db_connection, question, model_query, is_right, currect_qry, error_description)
 
-            # Close the database connection
+            #  hello Close the database connection
             if db_connection:
                 db_connection.close()
                 print("MySQL connection closed.")
