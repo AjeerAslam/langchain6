@@ -20,3 +20,4 @@ To run streamlit app
 1-pip install -r requirements.txt
 2-cd 4_sqldb_tshirts
 3-streamlit run  app.py
+

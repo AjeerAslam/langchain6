@@ -54,14 +54,14 @@ def read_human_schema(file_name="human_schema.txt"):
 def convert_few_shots_to_string(few_shots):
     result = ""
     for item in few_shots:
-        result += f"question: {item['question']}\ncurrect_sql_query: {item['currect_sql_query']}\n\nwrong_query_previously_generated_by_you: {item['wrong_query_previously_generated_by_you']}\n"
+        result += f"question: {item['question']}\ncorrect_sql_query: {item['currect_sql_query']}\n\nwrong_query_previously_generated_by_you: {item['wrong_query_previously_generated_by_you']}\n"
     return result
 
 
 def get_human_feedback():
 
     # Establish the database connection using your existing function
-    db_connection = get_db_connection(username='root', host='localhost', password='Atk@8522', database='atliq_tshirts')
+    db_connection = get_db_connection(username='root', host='localhost', password='password', database='universitymanagement')
 
     
     try:
@@ -100,8 +100,8 @@ def getQueryFromLLM(question, db , human_schema = None):
 
     # Get code-generated schema from the database
     code_generated_schema = getDatabaseSchema(db)
-
-    human_generated_schema=read_human_schema() 
+    human_generated_schema=read_human_schema() if not human_schema else human_schema
+    # human_generated_schema=read_human_schema() 
     # human_generated_schema=human_schema
 
     # Combine schemas
@@ -224,7 +224,7 @@ def get_input_feedback():
         currect_qry = None
         error_description = None
         if is_right == 'no':
-            currect_qry = st.text_input("Enter the currect query: ")
+            currect_qry = st.text_input("Enter the correct query: ")
             if currect_qry:
                 error_description = st.text_input("Why is the model output wrong? Please provide explanation:  ")
                 if error_description:
@@ -233,23 +233,6 @@ def get_input_feedback():
 
     
 
-# # Function to capture user feedback and log data
-# def capture_feedback_and_log(question, db_connection, db_langchain):
-
-#     # Step 1: Get the query from the model
-#     query = getQueryFromLLM(question,db_langchain)
-#     print(f"Model generated query: {query}")
-
-#     # Step 2: Ask user if the output is correct
-#     is_right = input("Is the model output correct? (yes/no): ").strip().lower()
-
-#     # Step 3: If wrong, capture explanation
-#     error_description = None
-#     if is_right == 'no':
-#         error_description = input("Why is the model output wrong? Please provide explanation: ")
-
-#     # Step 4: Insert data into database
-#     insert_human_feedback(db_connection, question, query, is_right, error_description)
 def clear_session_state():
     for key in st.session_state.keys():
         del st.session_state[key]
@@ -261,20 +244,59 @@ def refresh_browser():
             window.location.reload();
         </script>
     """, height=0)
+
+
+
+
+def get_accuracy():
+
+    # Establish the database connection using your existing function
+    db_connection = get_db_connection(username='root', host='localhost', password='password', database='universitymanagement')
+
     
+    try:
+
+        # Create a cursor from the existing connection
+        cursor = db_connection.cursor(dictionary=True)
+
+        # Query to fetch the query log entries from the table
+        query = """        
+        SELECT (cnt/10)*100 AS accuracy FROM (
+        select count(*) AS cnt FROM (
+        SELECT * 
+        FROM universitymanagement.human_feedback 
+        ORDER BY created_at DESC 
+        LIMIT 10) latest WHERE is_right='yes') acc;
+        """
+        
+        cursor.execute(query)
+
+        # Fetch all rows as a list of dictionaries
+        query_log_data = cursor.fetchall()
+        print(query_log_data)
+        return query_log_data[0]['accuracy']
+
+    except Exception as e:
+        print(f"Error reading query log: {e}")
+        return []
+
+    finally:
+        # Close the cursor
+        if cursor:
+            cursor.close()
 
 # Main function to set up the interaction
-def main():
-
+def main(human_schema= None):
+ 
     # Get database connection
-    db_connection = get_db_connection(username='root', host='localhost', password='Atk@8522', database='atliq_tshirts')
+    db_connection = get_db_connection(username='root', host='localhost', password='password', database='universitymanagement')
     print("Connected to db_connection.")
 
     if not db_connection:
         print("Failed to connect to the database. Exiting.")
         return
 
-    db_langchain=connectDatabase(username='root', port='3306', host='localhost', password='Atk%408522', database='atliq_tshirts')
+    db_langchain=connectDatabase(username='root', port='3306', host='localhost', password='password', database='universitymanagement')
     print("Connected to db_langchain.")
 
     if not db_langchain:
@@ -284,11 +306,9 @@ def main():
     
     question = st.text_input("Enter your question:  ")
     if question:
-        # if question.lower() == 'exit':
-        #     break
-
+        
         # Step 1: Get the query from the model
-        model_query = getQueryFromLLM(question,db_langchain)
+        model_query = getQueryFromLLM(question,db_langchain,human_schema)
         st.write(f"Model generated query: {model_query}")
 
         # Step 2: Ask user if the output is correct
@@ -302,9 +322,6 @@ def main():
                 if currect_qry and error_description:
                     insert_human_feedback(db_connection, question, model_query, is_right, currect_qry, error_description)
 
-
-        
-
             # Close the database connection
             if db_connection:
                 db_connection.close()
@@ -314,35 +331,25 @@ def main():
 
 st.title("Train the Model with Human Feedback")
 
-
-
+# accuracy=get_accuracy()
+# st.write("Accuracy = "+str(accuracy)+"%")
 
 # File uploader for PDF files in the sidebar
-if st.sidebar.button("Give more feedback"):
-    refresh_browser()
-# uploaded_file = st.sidebar.file_uploader("Choose a PDF file", type="pdf")
+uploaded_file = st.sidebar.file_uploader("Choose a PDF file", type="pdf")
 
-# human_schema = ""
-# if uploaded_file is not None:
-#     # Read the PDF file
-#     pdf_reader = PyPDF2.PdfReader(uploaded_file)
-#     num_pages = len(pdf_reader.pages)
+human_schema = ""
+if uploaded_file is not None:
+    # Read the PDF file
+    pdf_reader = PyPDF2.PdfReader(uploaded_file)
+    num_pages = len(pdf_reader.pages)
 
 
-#     # Display the content of each page
-#     for page_num in range(num_pages):
-#         page = pdf_reader.pages[page_num]
-#         human_schema = page.extract_text()
+    # Display the content of each page
+    for page_num in range(num_pages):
+        page = pdf_reader.pages[page_num]
+        human_schema = page.extract_text()
 
 
-main()
-
-
-# query,result=retry(question,db,human_schema)
-# st.write(query)
-# # st.write(result)
-# data=ast.literal_eval(result)
-# st.dataframe(data)
-
+main(human_schema)
 
 

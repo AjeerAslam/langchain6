@@ -89,3 +89,12 @@ CREATE TABLE human_feedback (
     error_description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+SELECT * FROM universitymanagement.human_feedback;
+SELECT (cnt/10)*100 AS ACCURACY FROM (
+select count(*) AS cnt FROM (
+SELECT * 
+FROM universitymanagement.human_feedback 
+ORDER BY created_at DESC 
+LIMIT 10) latest WHERE is_right='yes') acc;

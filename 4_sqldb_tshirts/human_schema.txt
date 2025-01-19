@@ -1,22 +1,117 @@
-Database: atliq_tshirts
+Database: UniversityManagement
 Description:
-A database to manage information about t-shirts and their associated discounts.
+A database designed to efficiently manage and track various operations and entities within a university environment. This system helps in managing academic records, administrative functions, and resource allocations such as library and hostel accommodations.
 
-Table: t_shirts
+Table: Classes
 Description:
-Stores details about t-shirts available for sale.
-- t_shirt_id: Unique identifier for each t-shirt.
-- brand: Brand of the t-shirt.
-- color: Color of the t-shirt.
-- size: Size of the t-shirt.
-- price: Price of the t-shirt (in dollars).
-- stock_quantity: Number of items in stock.
-- brand_color_size: Ensures no duplicate entries for the combination of brand, color, and size.
+The Classes table manages details of scheduled classes for courses in the university, including the professor assigned, semester information, and the schedule of the classes.
 
-Table: discounts
+-ClassID: Unique identifier for each class session. This is the primary key and is auto-incremented.
+-CourseID: Foreign key linking the class to a specific course in the Courses table, which defines the subject being taught.
+-ProfessorID: Foreign key linking the class to a specific professor in the Professors table, representing the instructor responsible for the class.
+-Semester: The semester in which the class is being conducted (e.g., Fall, Spring).
+-Year: The academic year in which the class is scheduled.
+-Schedule: Details about the timing and location of the class (e.g., "Monday 10 AM - 12 PM, Room 101").
+
+Table: Courses
 Description:
-Tracks discounts applied to specific t-shirts.
-- discount_id: Unique identifier for each discount.
-- t_shirt_id: Links to the corresponding t-shirt.
-- pct_discount: Discount percentage for the t-shirt.
+The Courses table stores information about the various courses offered by the university, including their details and the department to which they belong.
 
+-CourseID: Unique identifier for each course. This is the primary key and is auto-incremented.
+-CourseName: The name of the course (e.g., "Data Structures", "Fluid Mechanics").
+-Credits: The number of credit hours assigned to the course, representing its weight in the curriculum.
+-DepartmentID: Foreign key linking the course to a specific department in the Departments table, which indicates the department responsible for the course.
+
+Table: Departments
+Description:
+The Departments table contains information about the academic departments within the university. Each department is managed by a Head of Department (HOD) and is associated with a specific building.
+
+-DepartmentID: Unique identifier for each department. This is the primary key and is auto-incremented.
+-DepartmentName: The name of the department (e.g., "Computer Science", "Mechanical Engineering").
+-HOD: The name of the Head of Department responsible for managing the department.
+-Building: The building code or name where the department is located.
+
+Table: enrollments
+Description:
+Stores details about student enrollments in courses.
+
+-EnrollmentID: Unique identifier for each enrollment record.
+-StudentID: Identifies the student enrolled in the course.
+-CourseID: Identifies the course in which the student is enrolled.
+-EnrollmentDate: The date when the student enrolled in the course.
+-Grade: The grade awarded to the student for the course (e.g., 'A', 'B', 'C', etc.).
+
+
+Table: hostel
+Description:
+Stores details about hostels available for accommodation.
+
+-HostelID: Unique identifier for each hostel.
+-HostelName: The name of the hostel.
+-Capacity: The total number of students the hostel can accommodate.
+-WardenName: The name of the warden managing the hostel.
+-Location: The physical location of the hostel.
+
+
+Table: hostelallocation
+Description:
+Stores details about student allocations to hostels.
+
+-AllocationID: Unique identifier for each hostel allocation record.
+-StudentID: Identifies the student assigned to the hostel.
+-HostelID: Identifies the hostel where the student is allocated.
+-RoomNumber: The room number assigned to the student within the hostel.
+-AllocationDate: The date when the student was allocated to the hostel.
+-EndDate: The date when the student's hostel allocation ends.
+
+
+Table: library
+Description:
+Stores details about books available in the library.
+
+-BookID: Unique identifier for each book in the library.
+-Title: The title of the book.
+-Author: The author(s) of the book.
+-ISBN: International Standard Book Number for unique identification of the book.
+-PublishedYear: The year the book was published.
+-DepartmentID: Identifies the department to which the book belongs (e.g., Computer Science, Literature, etc.).
+
+
+Table: librarytransactions
+Description:
+Stores details about library book transactions.
+
+-TransactionID: Unique identifier for each transaction.
+-StudentID: Identifies the student who issued the book.
+-BookID: Identifies the book being issued.
+-IssueDate: The date when the book was issued to the student.
+-ReturnDate: The date when the book was returned by the student.
+-Status: The current status of the transaction (e.g., 'issued', 'returned', 'overdue').
+
+
+Table: professors
+Description:
+Stores details about professors in the institution.
+
+-ProfessorID: Unique identifier for each professor.
+-FirstName: The first name of the professor.
+-LastName: The last name of the professor.
+-Email: The email address of the professor.
+-ContactNumber: The contact number of the professor.
+-DepartmentID: Identifies the department to which the professor belongs (e.g., Computer Science, Mathematics, etc.).
+
+
+Table: students
+Description:
+Stores details about students enrolled in the institution.
+
+-StudentID: Unique identifier for each student.
+-FirstName: The first name of the student.
+-LastName: The last name of the student.
+-DateOfBirth: The date of birth of the student.
+-Gender: The gender of the student (e.g., 'Male', 'Female', 'Other').
+-ContactNumber: The contact number of the student.
+-Email: The email address of the student.
+-Address: The address of the student.
+-EnrollmentDate: The date when the student enrolled in the institution.
+-DepartmentID: Identifies the department to which the student belongs (e.g., Computer Science, Engineering, etc.).

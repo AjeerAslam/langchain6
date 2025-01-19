@@ -4,7 +4,7 @@ import app
 username='root' 
 port='3306' 
 host='localhost' 
-password='Atk%408522' 
+password='pasword' 
 database='atliq_tshirts'
 
 mysql_uri = f"mysql+mysqlconnector://{username}:{password}@{host}:{port}/{database}"

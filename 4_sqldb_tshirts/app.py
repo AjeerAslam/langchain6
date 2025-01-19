@@ -26,7 +26,7 @@ def get_db_connection(username, host, password, database):
 def get_human_feedback():
 
     # Establish the database connection using your existing function
-    db_connection = get_db_connection(username='root', host='localhost', password='Atk@8522', database='atliq_tshirts')
+    db_connection = get_db_connection(username='root', host='localhost', password='password', database='universitymanagement')
 
     
     try:
@@ -48,9 +48,9 @@ def get_human_feedback():
         cursor.execute(query)
 
         # Fetch all rows as a list of dictionaries
-        query_log_data = cursor.fetchall()
+        feedback_fewshot = cursor.fetchall()
 
-        return query_log_data
+        return feedback_fewshot
 
     except Exception as e:
         print(f"Error reading query log: {e}")
@@ -72,10 +72,10 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 def connectDatabase(username, port, host, password, database):
     try:
         mysql_uri = f"mysql+mysqlconnector://{username}:{password}@{host}:{port}/{database}"
-        db = SQLDatabase.from_uri(mysql_uri)
+        connection = SQLDatabase.from_uri(mysql_uri)
     except Exception as e:
         print(f"Error reading query log: {e}")
-    return db
+    return connection
 
 
 def runQuery(query,db):
@@ -90,50 +90,6 @@ def getDatabaseSchema(db):
 
 llm = ChatGoogleGenerativeAI(model="gemini-pro",api_key="AIzaSyDKAeomvp2rp8ICJ7IF0z8rTcZkDih8mog",verbose=True)
 
-
-
-
-def getResponseForQueryResult(question, query, result, db):
-    template2 = """below is the schema of MYSQL database, read the schema carefully about the table and column names of each table.
-    Also look into the conversation if available
-    Finally write a response in natural language by looking into the conversation and result.
-
-    {schema}
-
-    Here are some example for you:
-    question: how many albums we have in database
-    SQL query: SELECT COUNT(*) FROM album;
-    Result : [(34,)]
-    Response: There are 34 albums in the database.
-
-    question: how many users we have in database
-    SQL query: SELECT COUNT(*) FROM customer;
-    Result : [(59,)]
-    Response: There are 59 amazing users in the database.
-
-    question: how many users above are from india we have in database
-    SQL query: SELECT COUNT(*) FROM customer WHERE country=india;
-    Result : [(4,)]
-    Response: There are 4 amazing users in the database.
-
-    your turn to write response in natural language from the given result :
-    question: {question}
-    SQL query : {query}
-    Result : {result}
-    Response:
-    """
-
-    prompt2 = ChatPromptTemplate.from_template(template2)
-    chain2 = prompt2 | llm
-
-    response = chain2.invoke({
-        "question": question,
-        "schema": getDatabaseSchema(db),
-        "query": query,
-        "result": result
-    })
-
-    return response.content
 
 
 def convert_few_shots_to_string(few_shots):
@@ -170,37 +126,37 @@ def read_human_schema(file_name="human_schema.txt"):
 
 def getQueryFromLLM(question, db , human_schema = None):
 
-    # Get code-generated schema from the database
+    # Get code-generated schema from the database langchain
     code_generated_schema = getDatabaseSchema(db)
 
-    # human_generated_schema=read_human_schema() if not human_schema else human_schema
-    human_generated_schema=human_schema
+    human_generated_schema=read_human_schema() if not human_schema else human_schema
+    # human_generated_schema=human_schema
 
     # Combine schemas
     full_schema = f"{code_generated_schema}\n {human_generated_schema}"
 
     feedback_few_shots=get_human_feedback()
 
-    few_shots=[
+    few_shots_explicit=[
                 {
-                    "question": "how many albums we have in database ?",
-                    "currect_sql_query": "SELECT COUNT(*) FROM album",
+                    "question": "How many students are there in this college",
+                    "currect_sql_query": "SELECT COUNT(*) FROM Students",
                     "wrong_query_previously_generated_by_you": "null"
                 },
                 {
-                    "question": "how many customers are from Brazil in the database ?",
-                    "currect_sql_query": "SELECT COUNT(*) FROM customer WHERE country='Brazil'",
+                    "question": "How many professors belong to the Computer Science department?",
+                    "currect_sql_query": "SELECT COUNT(*) FROM professors WHERE DepartmentID = 1",
                     "wrong_query_previously_generated_by_you": "null"
                 }
     ]
 
-    few_shots=few_shots+feedback_few_shots
+    few_shots=few_shots_explicit+feedback_few_shots
     few_shots=convert_few_shots_to_string(few_shots)
 
     
-
+    # prompt to model
     # Define the template
-    template1 = """below is the schema of MYSQL database, read the schema carefully about the table and column names. Also take care of table or column name case sensitivity.
+    schema_template = """below is the schema of MYSQL database, read the schema carefully about the table and column names. Also take care of table or column name case sensitivity.
     Finally answer user's question in the form of SQL query.
 
     {schema}
@@ -210,16 +166,16 @@ def getQueryFromLLM(question, db , human_schema = None):
     for example:
     """
     
-    template2=few_shots
-
-    template3="""
+    few_shot_template=few_shots
+    
+    question_template="""
     your turn:
     question: {question}
     SQL query:
     please only provide the SQL query and nothing else
     """
 
-    template=template1+template2+template3
+    template=schema_template+few_shot_template+question_template
     prompt = ChatPromptTemplate.from_template(template)
     chain = prompt | llm
 
@@ -237,8 +193,7 @@ def getQueryFromLLM(question, db , human_schema = None):
 
 def retry(question,db=None,human_schema=None):
     try:
-        # mysql_uri = f"mysql+mysqlconnector://{username}:{password}@{host}:{port}/{database}"
-        # db = SQLDatabase.from_uri(mysql_uri)
+       
 
         query = getQueryFromLLM(question,db, human_schema)
         print(query,'query')
@@ -257,53 +212,16 @@ def retry(question,db=None,human_schema=None):
     
 
     
-# def create_dataframe(result):
-#     # Convert string to list
-#     data=ast.literal_eval(result)
 
-#     # Generate dynamic column names based on the number of columns in the data
-#     num_columns = len(data[0])
-#     columns = [str(i+1) for i in range(num_columns)]
-
-#     # Create DataFrame
-#     df = pd.DataFrame(data, columns=columns)
-
-#     return df
+db=connectDatabase(username='root', port='3306', host='localhost', password='password', database='universitymanagement')
 
 
-
-
-db=connectDatabase(username='root', port='3306', host='localhost', password='Atk%408522', database='atliq_tshirts')
-
-# username='root' 
-# port='3306' 
-# host='localhost' 
-# password='Atk%408522' 
-# database='atliq_tshirts'
-
-# mysql_uri = f"mysql+mysqlconnector://{username}:{password}@{host}:{port}/{database}"
-# db = SQLDatabase.from_uri(mysql_uri)
-
-
-
-# question='give me t-shirt and brand which have colour black'
-
-
-
-
-
-# df=create_dataframe("[(1,2),(3,4),(5,6)]")
-
-
-
-st.title("AtliQ T Shirts: Database Q&A 👕")
-
-
+st.title("College database: Chat Interface")
 
 
 # File uploader for PDF files in the sidebar
-uploaded_file = st.sidebar.file_uploader("Choose a PDF file", type="pdf")
-
+# uploaded_file = st.sidebar.file_uploader("Choose a PDF file", type="pdf")
+uploaded_file= None
 human_schema = ""
 if uploaded_file is not None:
     # Read the PDF file
@@ -316,32 +234,17 @@ if uploaded_file is not None:
         page = pdf_reader.pages[page_num]
         human_schema = page.extract_text()
 
+
+
 question = st.text_input("Question: ")
 if question:
     print(human_schema)
     query,result=retry(question,db,human_schema)
     st.write(query)
     # st.write(result)
-    data=ast.literal_eval(result)
-    st.dataframe(data)
-
-
-
-# display(df)
-
-# response = getResponseForQueryResult(question, query, result, db)
-
-# print (response)
-
-
-
-
-
-
-
-
-
-
+    result_list=ast.literal_eval(result)
+    
+    st.dataframe(result_list)
 
 
 
