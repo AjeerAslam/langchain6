@@ -43,11 +43,26 @@ def analyze_query_structure(query):
         return 0.8  # Default score if sqlparse not available
     
     try:
-        parsed = sqlparse.parse(query)[0]
+        # Clean the query first
+        query = query.strip()
+        if query.startswith("```sql"):
+            query = query[6:].strip("` \n")
         
-        # Basic validation
-        if not any(t.token_type is DML and t.value.upper() == 'SELECT' for t in parsed.flatten()):
-            return 0.0  # Not a SELECT query
+        parsed = sqlparse.parse(query)
+        if not parsed or not parsed[0].tokens:
+            return 0.0
+            
+        parsed = parsed[0]
+        
+        # More robust token checking
+        def is_select_token(t):
+            return hasattr(t, 'ttype') and t.ttype is DML and t.value.upper() == 'SELECT'
+        
+        # Check if it's a SELECT query
+        if not any(is_select_token(t) for t in parsed.flatten()):
+            # Fallback check in case sqlparse didn't properly tokenize
+            if not re.search(r'^\s*SELECT\s', query, re.IGNORECASE):
+                return 0.0
         
         score = 0.0
         components = {
@@ -61,24 +76,34 @@ def analyze_query_structure(query):
         
         # Check for required components
         for token in parsed.tokens:
+            if not hasattr(token, 'ttype'):
+                continue
+                
             if token.ttype is DML and token.value.upper() == 'SELECT':
                 components['select'] = True
                 score += 0.2
-            elif token.ttype is Keyword and token.value.upper() == 'FROM':
-                components['from'] = True
-                score += 0.2
-            elif token.ttype is Keyword and token.value.upper() == 'WHERE':
-                components['where'] = True
-                score += 0.1
-            elif token.ttype is Keyword and token.value.upper() in ('JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN'):
-                components['joins'] = True
-                score += 0.2
-            elif token.ttype is Keyword and token.value.upper() == 'GROUP BY':
-                components['group_by'] = True
-                score += 0.1
-            elif token.ttype is Keyword and token.value.upper() == 'ORDER BY':
-                components['order_by'] = True
-                score += 0.1
+            elif token.ttype is Keyword:
+                token_value = token.value.upper()
+                if token_value == 'FROM':
+                    components['from'] = True
+                    score += 0.2
+                elif token_value == 'WHERE':
+                    components['where'] = True
+                    score += 0.1
+                elif token_value in ('JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN'):
+                    components['joins'] = True
+                    score += 0.2
+                elif token_value == 'GROUP BY':
+                    components['group_by'] = True
+                    score += 0.1
+                elif token_value == 'ORDER BY':
+                    components['order_by'] = True
+                    score += 0.1
+        
+        # Additional check for implicit FROM clause
+        if not components['from'] and 'FROM' in query.upper():
+            components['from'] = True
+            score += 0.2
         
         # Check for proper join conditions
         if components['joins']:
@@ -88,15 +113,17 @@ def analyze_query_structure(query):
                     for sub_token in token.tokens:
                         if isinstance(sub_token, Comparison):
                             join_conditions.append(str(sub_token))
+                elif hasattr(token, 'value') and '=' in token.value:
+                    join_conditions.append(token.value)
             
             if len(join_conditions) > 0:
                 score += 0.2
         
-        # Cap the score at 1.0
         return min(score, 1.0)
     
     except Exception as e:
-        print(f"Error analyzing query structure: {e}")
+        print(f"Error analyzing query structure for query: {repr(query)}")
+        print(f"Error details: {str(e)}")
         return 0.5  # Medium score if analysis fails
 
 def check_syntax_errors(query):
@@ -233,103 +260,8 @@ def read_human_schema(file_name="human_schema.txt"):
 
     return human_generated_schema
 
-def analyze_query_structure(query):
-    """Analyze the SQL query structure and return a score (0-1)"""
-    try:
-        parsed = sqlparse.parse(query)[0]
-        
-        # Basic validation
-        if not any(t.token_type is DML and t.value.upper() == 'SELECT' for t in parsed.flatten()):
-            return 0.0  # Not a SELECT query
-        
-        score = 0.0
-        components = {
-            'select': False,
-            'from': False,
-            'where': False,
-            'joins': False,
-            'group_by': False,
-            'order_by': False
-        }
-        
-        # Check for required components
-        for token in parsed.tokens:
-            if token.ttype is DML and token.value.upper() == 'SELECT':
-                components['select'] = True
-                score += 0.2
-            elif token.ttype is Keyword and token.value.upper() == 'FROM':
-                components['from'] = True
-                score += 0.2
-            elif token.ttype is Keyword and token.value.upper() == 'WHERE':
-                components['where'] = True
-                score += 0.1
-            elif token.ttype is Keyword and token.value.upper() in ('JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN'):
-                components['joins'] = True
-                score += 0.2
-            elif token.ttype is Keyword and token.value.upper() == 'GROUP BY':
-                components['group_by'] = True
-                score += 0.1
-            elif token.ttype is Keyword and token.value.upper() == 'ORDER BY':
-                components['order_by'] = True
-                score += 0.1
-        
-        # Check for proper join conditions
-        if components['joins']:
-            join_conditions = []
-            for token in parsed.tokens:
-                if isinstance(token, Where):
-                    for sub_token in token.tokens:
-                        if isinstance(sub_token, Comparison):
-                            join_conditions.append(str(sub_token))
-            
-            if len(join_conditions) > 0:
-                score += 0.2
-        
-        # Cap the score at 1.0
-        return min(score, 1.0)
-    
-    except Exception as e:
-        print(f"Error analyzing query structure: {e}")
-        return 0.0
 
-def check_syntax_errors(query):
-    """Check for basic SQL syntax errors"""
-    try:
-        parsed = sqlparse.parse(query)
-        if not parsed or len(parsed) == 0:
-            return False
-        return True
-    except Exception:
-        return False
 
-def validate_table_columns(query, db_schema):
-    """Check if tables and columns mentioned in query exist in schema"""
-    try:
-        parsed = sqlparse.parse(query)[0]
-        tables_in_query = set()
-        columns_in_query = set()
-        
-        # Extract tables and columns from query
-        for token in parsed.tokens:
-            if isinstance(token, Identifier):
-                parts = [p.value for p in token.flatten() if p.ttype is Name]
-                if len(parts) > 1:
-                    tables_in_query.add(parts[0])
-                    columns_in_query.add(parts[-1])
-                else:
-                    columns_in_query.add(parts[0])
-        
-        # Check against schema (simplified check)
-        schema_str = str(db_schema).lower()
-        missing_tables = [t for t in tables_in_query if t.lower() not in schema_str]
-        missing_columns = [c for c in columns_in_query if c.lower() not in schema_str]
-        
-        if missing_tables or missing_columns:
-            return False
-        return True
-    except Exception as e:
-        print(f"Error validating tables/columns: {e}")
-        return False
 
 def calculate_query_accuracy(query, db_schema):
     """Calculate overall query accuracy score (0-1)"""
