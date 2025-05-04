@@ -10,14 +10,14 @@ import re
 import os
 
 # Try to import sqlparse with fallback
-try:
-    import sqlparse
-    from sqlparse.sql import IdentifierList, Identifier, Where, Comparison
-    from sqlparse.tokens import Keyword, DML, Name
-    SQLPARSE_AVAILABLE = True
-except ImportError:
-    SQLPARSE_AVAILABLE = False
-    st.warning("SQL parsing features limited - install sqlparse with: pip install sqlparse")
+# try:
+#     import sqlparse
+#     from sqlparse.sql import IdentifierList, Identifier, Where, Comparison
+#     from sqlparse.tokens import Keyword, DML, Name
+#     SQLPARSE_AVAILABLE = True
+# except ImportError:
+#     SQLPARSE_AVAILABLE = False
+#     st.warning("SQL parsing features limited - install sqlparse with: pip install sqlparse")
 
 # --- Your existing database connection functions ---
 def get_db_connection(username, host, password, database):
@@ -37,148 +37,61 @@ def get_db_connection(username, host, password, database):
         raise Exception(f"Failed to connect to database: {e}")
 
 # --- Add the new query analysis functions here ---
-def analyze_query_structure(query):
-    """Analyze the SQL query structure and return a score (0-1)"""
-    if not SQLPARSE_AVAILABLE:
-        return 0.8  # Default score if sqlparse not available
-    
-    try:
-        # Clean the query first
-        query = query.strip()
-        if query.startswith("```sql"):
-            query = query[6:].strip("` \n")
-        
-        parsed = sqlparse.parse(query)
-        if not parsed or not parsed[0].tokens:
-            return 0.0
-            
-        parsed = parsed[0]
-        
-        # More robust token checking
-        def is_select_token(t):
-            return hasattr(t, 'ttype') and t.ttype is DML and t.value.upper() == 'SELECT'
-        
-        # Check if it's a SELECT query
-        if not any(is_select_token(t) for t in parsed.flatten()):
-            # Fallback check in case sqlparse didn't properly tokenize
-            if not re.search(r'^\s*SELECT\s', query, re.IGNORECASE):
-                return 0.0
-        
-        score = 0.0
-        components = {
-            'select': False,
-            'from': False,
-            'where': False,
-            'joins': False,
-            'group_by': False,
-            'order_by': False
-        }
-        
-        # Check for required components
-        for token in parsed.tokens:
-            if not hasattr(token, 'ttype'):
-                continue
-                
-            if token.ttype is DML and token.value.upper() == 'SELECT':
-                components['select'] = True
-                score += 0.2
-            elif token.ttype is Keyword:
-                token_value = token.value.upper()
-                if token_value == 'FROM':
-                    components['from'] = True
-                    score += 0.2
-                elif token_value == 'WHERE':
-                    components['where'] = True
-                    score += 0.1
-                elif token_value in ('JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN'):
-                    components['joins'] = True
-                    score += 0.2
-                elif token_value == 'GROUP BY':
-                    components['group_by'] = True
-                    score += 0.1
-                elif token_value == 'ORDER BY':
-                    components['order_by'] = True
-                    score += 0.1
-        
-        # Additional check for implicit FROM clause
-        if not components['from'] and 'FROM' in query.upper():
-            components['from'] = True
-            score += 0.2
-        
-        # Check for proper join conditions
-        if components['joins']:
-            join_conditions = []
-            for token in parsed.tokens:
-                if isinstance(token, Where):
-                    for sub_token in token.tokens:
-                        if isinstance(sub_token, Comparison):
-                            join_conditions.append(str(sub_token))
-                elif hasattr(token, 'value') and '=' in token.value:
-                    join_conditions.append(token.value)
-            
-            if len(join_conditions) > 0:
-                score += 0.2
-        
-        return min(score, 1.0)
-    
-    except Exception as e:
-        print(f"Error analyzing query structure for query: {repr(query)}")
-        print(f"Error details: {str(e)}")
-        return 0.5  # Medium score if analysis fails
 
-def check_syntax_errors(query):
-    """Check for basic SQL syntax errors"""
-    if not SQLPARSE_AVAILABLE:
-        # Simple regex check as fallback
-        return bool(re.match(r'^\s*SELECT\s+.+\s+FROM\s+.+', query, re.IGNORECASE))
-    
-    try:
-        parsed = sqlparse.parse(query)
-        return bool(parsed and len(parsed) > 0)
-    except Exception:
-        return False
 
-def validate_table_columns(query, db_schema):
-    """Check if tables and columns mentioned in query exist in schema"""
-    if not SQLPARSE_AVAILABLE:
-        return True  # Skip validation if sqlparse not available
+# def check_syntax_errors(query):
+#     """Check for basic SQL syntax errors"""
+#     if not SQLPARSE_AVAILABLE:
+#         # Simple regex check as fallback
+#         return bool(re.match(r'^\s*SELECT\s+.+\s+FROM\s+.+', query, re.IGNORECASE))
     
-    try:
-        parsed = sqlparse.parse(query)[0]
-        tables_in_query = set()
-        columns_in_query = set()
-        
-        # Extract tables and columns from query
-        for token in parsed.tokens:
-            if isinstance(token, Identifier):
-                parts = [p.value for p in token.flatten() if p.ttype is Name]
-                if len(parts) > 1:
-                    tables_in_query.add(parts[0])
-                    columns_in_query.add(parts[-1])
-                else:
-                    columns_in_query.add(parts[0])
-        
-        # Check against schema (simplified check)
-        schema_str = str(db_schema).lower()
-        missing_tables = [t for t in tables_in_query if t.lower() not in schema_str]
-        missing_columns = [c for c in columns_in_query if c.lower() not in schema_str]
-        
-        return not (missing_tables or missing_columns)
-    except Exception as e:
-        print(f"Error validating tables/columns: {e}")
-        return True  # Assume valid if validation fails
+#     try:
+#         parsed = sqlparse.parse(query)
+#         return bool(parsed and len(parsed) > 0)
+#     except Exception:
+#         return False
 
-def calculate_query_accuracy(query, db_schema):
-    """Calculate overall query accuracy score (0-1)"""
-    if not check_syntax_errors(query):
-        return 0.0
+# def validate_table_columns(query, db_schema):
+#     """Check if tables and columns mentioned in query exist in schema"""
+#     if not SQLPARSE_AVAILABLE:
+#         return True  # Skip validation if sqlparse not available
     
-    structure_score = analyze_query_structure(query)
-    schema_score = 1.0 if validate_table_columns(query, db_schema) else 0.5
+#     try:
+#         parsed = sqlparse.parse(query)[0]
+#         tables_in_query = set()
+#         columns_in_query = set()
+        
+#         # Extract tables and columns from query
+#         for token in parsed.tokens:
+#             if isinstance(token, Identifier):
+#                 parts = [p.value for p in token.flatten() if p.ttype is Name]
+#                 if len(parts) > 1:
+#                     tables_in_query.add(parts[0])
+#                     columns_in_query.add(parts[-1])
+#                 else:
+#                     columns_in_query.add(parts[0])
+        
+#         # Check against schema (simplified check)
+#         schema_str = str(db_schema).lower()
+#         missing_tables = [t for t in tables_in_query if t.lower() not in schema_str]
+#         missing_columns = [c for c in columns_in_query if c.lower() not in schema_str]
+        
+#         return not (missing_tables or missing_columns)
+#     except Exception as e:
+#         print(f"Error validating tables/columns: {e}")
+#         return True  # Assume valid if validation fails
+
+# def calculate_query_accuracy(query, db_schema):
+#     """Calculate overall query accuracy score (0-1)"""
+#     if not check_syntax_errors(query):
+#         return 0.0
     
-    # Weighted average
-    accuracy = (structure_score * 0.6) + (schema_score * 0.4)
-    return round(accuracy, 2)
+    
+#     schema_score = 1.0 if validate_table_columns(query, db_schema) else 0.5
+    
+#     # Weighted average
+#     accuracy = (schema_score * 0.4)
+#     return round(accuracy, 2)
 
 # --- Then continue with your existing functions ---
 
@@ -190,11 +103,11 @@ def get_human_feedback():
         cursor = db_connection.cursor(dictionary=True)
         query = """
         SELECT question, currect_query as currect_sql_query, model_query as wrong_query_previously_generated_by_you
-        FROM human_feedback
+        FROM human_feedback_backup
         WHERE is_right='no'
         UNION ALL
         SELECT question, model_query as currect_sql_query, null as wrong_query_previously_generated_by_you
-        FROM human_feedback
+        FROM human_feedback_backup
         WHERE is_right='yes'
         """
         cursor.execute(query)
@@ -261,19 +174,6 @@ def read_human_schema(file_name="human_schema.txt"):
     return human_generated_schema
 
 
-
-
-def calculate_query_accuracy(query, db_schema):
-    """Calculate overall query accuracy score (0-1)"""
-    if not check_syntax_errors(query):
-        return 0.0
-    
-    structure_score = analyze_query_structure(query)
-    schema_score = 1.0 if validate_table_columns(query, db_schema) else 0.5
-    
-    # Weighted average
-    accuracy = (structure_score * 0.6) + (schema_score * 0.4)
-    return round(accuracy, 2)
 
 def getQueryFromLLM(question, db, human_schema=None):
     code_generated_schema = getDatabaseSchema(db)
@@ -342,12 +242,71 @@ def retry(question, db=None, human_schema=None):
         print(f"Error: {e}")
         return retry(question, db)
 
+
+# Function to get accuracy history
+# def get_accuracy_history():
+#     try:
+#         db_connection = get_db_connection(username='root', host='localhost', password='password', database='universitymanagement')
+#         cursor = db_connection.cursor(dictionary=True)
+#         query = """
+#         SELECT created_at, is_right 
+#         FROM human_feedback 
+#         ORDER BY created_at DESC 
+#         LIMIT 30;
+#         """
+#         cursor.execute(query)
+#         feedback_data = cursor.fetchall()
+#         accuracy_history = []
+#         correct_count = 0
+#         for i, feedback in enumerate(feedback_data):
+#             if feedback['is_right'] == 'yes':
+#                 correct_count += 1
+#             accuracy_history.append((correct_count / (i + 1)) * 100)
+#         return accuracy_history
+#     except Exception as e:
+#         print(f"Error reading query log: {e}")
+#         return []
+#     finally:
+#         if cursor:
+#             cursor.close()
+#         if db_connection:
+#             db_connection.close()
+
+# Function to get current accuracy
+def get_accuracy():
+    try:
+        db_connection = get_db_connection(username='root', host='localhost', password='password', database='universitymanagement')
+        cursor = db_connection.cursor(dictionary=True)
+        query = """        
+        SELECT (cnt/30)*100 AS accuracy FROM (
+            SELECT COUNT(*) AS cnt FROM (
+                SELECT * 
+                FROM universitymanagement.human_feedback_backup
+                ORDER BY created_at DESC 
+                LIMIT 30
+            ) latest WHERE is_right='yes'
+        ) acc;
+        """
+        cursor.execute(query)
+        query_log_data = cursor.fetchall()
+        return query_log_data[0]['accuracy'] if query_log_data else 0
+    except Exception as e:
+        print(f"Error reading query log: {e}")
+        return 0
+    finally:
+        if cursor:
+            cursor.close()
+        if db_connection:
+            db_connection.close()        
+
 # Connect to the database
 db = connectDatabase(username='root', port='3306', host='localhost', password='password', database='universitymanagement')
 
 # Streamlit app
 st.title("College database: Chat Interface")
 
+accuracy = get_accuracy()
+st.write("Model accuracy = " + str(accuracy) + "%")
 # File uploader for PDF files in the sidebar
 uploaded_file = st.sidebar.file_uploader("Upload a PDF file for human schema", type="pdf")
 human_schema = ""
@@ -377,15 +336,15 @@ if question:
             st.dataframe(result_list)
             
             # Calculate and display query accuracy
-            db_schema = getDatabaseSchema(db)
-            accuracy = calculate_query_accuracy(query, db_schema)
-            st.write(f"Query Accuracy: {accuracy * 100:.0f}%")
+            # db_schema = getDatabaseSchema(db)
+            # accuracy = calculate_query_accuracy(query, db_schema)
+            # st.write(f"Query Accuracy: {accuracy * 100:.0f}%")
             
             # Display detailed feedback
-            with st.expander("Accuracy Breakdown"):
-                st.write("**Structure Score:**", f"{analyze_query_structure(query) * 100:.0f}%")
-                st.write("**Schema Validation:**", "✅ Passed" if validate_table_columns(query, db_schema) else "❌ Failed")
-                st.write("**Syntax Check:**", "✅ Valid" if check_syntax_errors(query) else "❌ Invalid")
+            # with st.expander("Accuracy Breakdown"):
+            
+            #     st.write("**Schema Validation:**", "✅ Passed" if validate_table_columns(query, db_schema) else "❌ Failed")
+            #     st.write("**Syntax Check:**", "✅ Valid" if check_syntax_errors(query) else "❌ Invalid")
                 
         except (ValueError, SyntaxError):
             st.write("The query result could not be parsed. Raw output:")

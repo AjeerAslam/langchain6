@@ -85,11 +85,11 @@ def get_human_feedback():
         cursor = db_connection.cursor(dictionary=True)
         query = """
         SELECT question, currect_query as currect_sql_query, model_query as wrong_query_previously_generated_by_you
-        FROM human_feedback
+        FROM human_feedback_backup
         WHERE is_right='no'
         UNION ALL
         SELECT question, model_query as currect_sql_query, null as wrong_query_previously_generated_by_you
-        FROM human_feedback
+        FROM human_feedback_backup
         WHERE is_right='yes'
         """
         cursor.execute(query)
@@ -152,7 +152,7 @@ def insert_human_feedback(connection, question, model_query, is_right, currect_q
     try:
         cursor = connection.cursor()
         insert_query = """
-        INSERT INTO human_feedback (question, model_query, is_right, currect_query, error_description)
+        INSERT INTO human_feedback_backup (question, model_query, is_right, currect_query, error_description)
         VALUES (%s, %s, %s, %s, %s)
         """
         values = (question, model_query, is_right, currect_query, error_description if error_description else None)
@@ -193,33 +193,33 @@ def refresh_browser():
     """, height=0)
 
 # Function to get accuracy history
-def get_accuracy_history():
-    try:
-        db_connection = get_db_connection(username='root', host='localhost', password='password', database='universitymanagement')
-        cursor = db_connection.cursor(dictionary=True)
-        query = """
-        SELECT created_at, is_right 
-        FROM human_feedback 
-        ORDER BY created_at DESC 
-        LIMIT 10;
-        """
-        cursor.execute(query)
-        feedback_data = cursor.fetchall()
-        accuracy_history = []
-        correct_count = 0
-        for i, feedback in enumerate(feedback_data):
-            if feedback['is_right'] == 'yes':
-                correct_count += 1
-            accuracy_history.append((correct_count / (i + 1)) * 100)
-        return accuracy_history
-    except Exception as e:
-        print(f"Error reading query log: {e}")
-        return []
-    finally:
-        if cursor:
-            cursor.close()
-        if db_connection:
-            db_connection.close()
+# def get_accuracy_history():
+#     try:
+#         db_connection = get_db_connection(username='root', host='localhost', password='password', database='universitymanagement')
+#         cursor = db_connection.cursor(dictionary=True)
+#         query = """
+#         SELECT created_at, is_right 
+#         FROM human_feedback 
+#         ORDER BY created_at DESC 
+#         LIMIT 30;
+#         """
+#         cursor.execute(query)
+#         feedback_data = cursor.fetchall()
+#         accuracy_history = []
+#         correct_count = 0
+#         for i, feedback in enumerate(feedback_data):
+#             if feedback['is_right'] == 'yes':
+#                 correct_count += 1
+#             accuracy_history.append((correct_count / (i + 1)) * 100)
+#         return accuracy_history
+#     except Exception as e:
+#         print(f"Error reading query log: {e}")
+#         return []
+#     finally:
+#         if cursor:
+#             cursor.close()
+#         if db_connection:
+#             db_connection.close()
 
 # Function to get current accuracy
 def get_accuracy():
@@ -227,12 +227,12 @@ def get_accuracy():
         db_connection = get_db_connection(username='root', host='localhost', password='password', database='universitymanagement')
         cursor = db_connection.cursor(dictionary=True)
         query = """        
-        SELECT (cnt/10)*100 AS accuracy FROM (
+        SELECT (cnt/30)*100 AS accuracy FROM (
             SELECT COUNT(*) AS cnt FROM (
                 SELECT * 
-                FROM universitymanagement.human_feedback 
+                FROM universitymanagement.human_feedback_backup
                 ORDER BY created_at DESC 
-                LIMIT 10
+                LIMIT 30
             ) latest WHERE is_right='yes'
         ) acc;
         """
